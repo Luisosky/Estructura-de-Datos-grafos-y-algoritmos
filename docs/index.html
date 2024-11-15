@@ -162,7 +162,7 @@
             alert(`Árbol de expansión mínima:\n${result}`);
         });
 
-        ocument.getElementById('run-bellman-ford').addEventListener('click', () => {
+        document.getElementById('run-bellman-ford').addEventListener('click', () => {
             let source = prompt("Ingrese el ID del nodo fuente:");
             if (!source || !graph.hasNode(source)) {
                 alert("Verifica que el nodo fuente existe.");
