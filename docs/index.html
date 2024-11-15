@@ -3,223 +3,317 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graph Algorithms</title>
+    <title>Grafos y algoritmos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/javascript-astar/0.4.1/astar.min.js"></script>
+    <style>
+        #cy {
+            width: 80%;
+            height: 600px;
+            display: inline-block;
+        }
+        #controls {
+            width: 18%;
+            display: inline-block;
+            vertical-align: top;
+        }
+        button {
+            display: block;
+            margin: 10px 0;
+        }
+    </style>
 </head>
 <body>
-    <button id="run-bellman-ford">Run Bellman-Ford</button>
-    <button id="run-kruskal">Run Kruskal</button>
-    <button id="run-dijkstra">Run Dijkstra</button>
-    <button id="run-yen">Run Yen's K-Shortest Paths</button>
+    <div id="controls">
+        <button id="add-node">Agregar Nodo</button>
+        <button id="add-edge">Agregar Arista</button>
+        <button id="run-dijkstra">Dijkstra</button>
+        <button id="run-kruskal">Kruskal</button>
+        <button id="run-bellman-ford">Bellman-Ford</button>
+        <button id="run-yen">Yen</button>
+    </div>
+    <div id="cy"></div>
 
     <script>
-        const graph = new graphlib.Graph();
-
-
-        document.getElementById('run-bellman-ford').addEventListener('click', () => {
-            let source = prompt("Ingrese el ID del nodo fuente:");
-            let target = prompt("Ingrese el ID del nodo destino:");
-            console.log("Ejecutando Bellman-Ford desde", source, "a", target);  // Depuración
-
-            if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
-                let result = bellmanFordAlgorithm(graph, source, target);
-                if (result.error) {
-                    alert(result.error);  // Mostrar el mensaje de error si hay un ciclo negativo
-                } else {
-                    if (result.path.length === 0) {
-                        alert("No hay un camino disponible entre los nodos especificados.");
-                    } else {
-                        alert(`Camino más corto: ${result.path.join(' -> ')} con distancia total: ${result.distance}`);
+        let cy = cytoscape({
+            container: document.getElementById('cy'),
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'background-color': 'lightblue',
+                        'label': 'data(id)'
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 3,
+                        'line-color': 'gray',
+                        'target-arrow-color': 'gray',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'label': 'data(weight)'
                     }
                 }
-            } else {
-                alert("Verifica que los nodos existen.");
-            }
+            ],
+            elements: []
         });
 
-        document.getElementById('run-kruskal').addEventListener('click', () => {
-            let result = kruskalAlgoritmo(graph);
-            if (result.error) {
-                alert(result.error);  // Depurar
+        let graph = new graphlib.Graph({ directed: false });
+        let nodeCount = 0;
+
+        document.getElementById('add-node').addEventListener('click', () => {
+            nodeCount++;
+            let nodeId = `n${nodeCount}`;
+            cy.add({
+                group: 'nodes',
+                data: { id: nodeId },
+                position: { x: Math.random() * 600, y: Math.random() * 600 }
+            });
+            graph.setNode(nodeId);
+        });
+
+        document.getElementById('add-edge').addEventListener('click', () => {
+            let source = prompt("Ingrese el ID del nodo fuente:");
+            let target = prompt("Ingrese el ID del nodo destino:");
+            let weight = parseFloat(prompt("Ingrese el peso de la arista:"));
+            let color = prompt("Ingrese el color de la arista (por ejemplo, 'red', 'blue'):");
+
+            if (source && target && !isNaN(weight) && color && graph.hasNode(source) && graph.hasNode(target)) {
+                cy.add({
+                    group: 'edges',
+                    data: { id: `e${source}-${target}`, source: source, target: target, weight: weight },
+                    style: { 'line-color': color, 'target-arrow-color': color }
+                });
+                graph.setEdge(source, target, weight);
             } else {
-                let mstEdges = result.edges.map(edge => `${edge.v} - ${edge.w} (Peso: ${edge.weight})`);
-                alert(`Árbol de expansión mínima:\n${mstEdges.join('\n')}`);
+                alert("Verifica que los nodos existen y que los datos son válidos.");
             }
         });
 
         document.getElementById('run-dijkstra').addEventListener('click', () => {
             let source = prompt("Ingrese el ID del nodo fuente:");
             let target = prompt("Ingrese el ID del nodo destino:");
-            console.log("Ejecutando Dijkstra desde", source, "a", target);  // Depuración
-
             if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
-                let result = dijkstraPath(source, target);
-                if (result.length === 0) {
-                    alert("No hay un camino disponible entre los nodos especificados.");
-                } else {
-                    alert(`Camino más corto: ${result.join(' -> ')} con distancia total: ${calculatePathCost(result)}`);
+                let path = graphlib.alg.dijkstra(graph, source, e => graph.edge(e));
+                let result = [];
+                let current = target;
+                while (current !== source) {
+                    result.push(current);
+                    current = path[current].predecessor;
                 }
+                result.push(source);
+                result.reverse();
+                alert(`Camino más corto: ${result.join(' -> ')}`);
             } else {
                 alert("Verifica que los nodos existen.");
             }
         });
 
-        document.getElementById('run-yen').addEventListener('click', () => {
-            let source = prompt("Ingrese el ID del nodo fuente:");
-            let target = prompt("Ingrese el ID del nodo destino:");
-            let k = parseInt(prompt("Ingrese el número de caminos más cortos a encontrar:"));
-            console.log("Ejecutando Yen desde", source, "a", target, "para", k, "caminos");  // Depuración
+        document.getElementById('run-kruskal').addEventListener('click', () => {
+            let edges = graph.edges().map(edge => ({
+                source: edge.v,
+                target: edge.w,
+                weight: graph.edge(edge)
+            }));
+            edges.sort((a, b) => a.weight - b.weight);
 
-            if (source && target && !isNaN(k) && graph.hasNode(source) && graph.hasNode(target)) {
-                let result = yenKShortestPaths(source, target, k);
-                if (result.length === 0) {
-                    alert("No hay caminos disponibles entre los nodos especificados.");
-                } else {
-                    result.forEach((path, i) => {
-                        alert(`Camino ${i + 1}: ${path.join(' -> ')} con distancia total: ${calculatePathCost(path)}`);
-                    });
+            let mst = [];
+            let parent = {};
+            let rank = {};
+
+            function find(node) {
+                if (parent[node] !== node) {
+                    parent[node] = find(parent[node]);
                 }
-            } else {
-                alert("Verifica que los nodos existen y que los datos son válidos.");
+                return parent[node];
             }
+
+            function union(node1, node2) {
+                let root1 = find(node1);
+                let root2 = find(node2);
+                if (root1 !== root2) {
+                    if (rank[root1] > rank[root2]) {
+                        parent[root2] = root1;
+                    } else if (rank[root1] < rank[root2]) {
+                        parent[root1] = root2;
+                    } else {
+                        parent[root2] = root1;
+                        rank[root1]++;
+                    }
+                }
+            }
+
+            graph.nodes().forEach(node => {
+                parent[node] = node;
+                rank[node] = 0;
+            });
+
+            edges.forEach(edge => {
+                if (find(edge.source) !== find(edge.target)) {
+                    mst.push(edge);
+                    union(edge.source, edge.target);
+                }
+            });
+
+            let result = mst.map(e => `${e.source} - ${e.target} (Peso: ${e.weight})`).join('\n');
+            alert(`Árbol de expansión mínima:\n${result}`);
         });
 
-        // Implementación del algoritmo Bellman-Ford
-        function bellmanFordAlgorithm(graph, source, target) {
-            const distances = {};
-            const predecessors = {};
+        ocument.getElementById('run-bellman-ford').addEventListener('click', () => {
+            let source = prompt("Ingrese el ID del nodo fuente:");
+            if (!source || !graph.hasNode(source)) {
+                alert("Verifica que el nodo fuente existe.");
+                return;
+            }
 
-            // Inicializar las distancias y predecesores
+            let distances = {};
+            let predecessors = {};
+
             graph.nodes().forEach(node => {
                 distances[node] = Infinity;
                 predecessors[node] = null;
             });
             distances[source] = 0;
 
-            // Relajación de todas las aristas |V| - 1 veces
+            let edges = graph.edges();
+
             for (let i = 0; i < graph.nodeCount() - 1; i++) {
-                graph.edges().forEach(edge => {
-                    const u = edge.v;
-                    const v = edge.w;
-                    const weight = graph.edge(u, v);
-                    if (distances[u] !== Infinity && distances[u] + weight < distances[v]) {
+                edges.forEach(edge => {
+                    let u = edge.v;
+                    let v = edge.w;
+                    let weight = graph.edge(edge);
+                    if (distances[u] + weight < distances[v]) {
                         distances[v] = distances[u] + weight;
                         predecessors[v] = u;
                     }
                 });
             }
 
-            // Comprobar ciclos de peso negativo
-            for (const edge of graph.edges()) {
-                const u = edge.v;
-                const v = edge.w;
-                const weight = graph.edge(u, v);
-                if (distances[u] !== Infinity && distances[u] + weight < distances[v]) {
-                    return { error: "El grafo contiene un ciclo de peso negativo." };
+            let hasNegativeCycle = false;
+            edges.forEach(edge => {
+                if (distances[edge.v] + graph.edge(edge) < distances[edge.w]) {
+                    hasNegativeCycle = true;
                 }
-            }
+            });
 
-            // Reconstruir el camino desde el destino al origen
-            const path = [];
-            let current = target;
-            while (current !== null) {
-                path.push(current);
-                current = predecessors[current];
+            if (hasNegativeCycle) {
+                alert("El grafo contiene un ciclo negativo.");
+            } else {
+                let result = Object.keys(distances)
+                    .map(node => `${source} -> ${node}: ${distances[node]}`)
+                    .join('\n');
+                alert(`Distancias más cortas:\n${result}`);
             }
-            path.reverse();
+        });
 
-            // Si no se pudo llegar al destino desde el origen, devolver un camino vacío
-            return {
-                path: distances[target] === Infinity ? [] : path,
-                distance: distances[target]
-            };
+        document.getElementById('run-yen').addEventListener('click', () => {
+        let source = prompt("Ingrese el ID del nodo fuente:");
+        let target = prompt("Ingrese el ID del nodo destino:");
+        let k = parseInt(prompt("Ingrese la cantidad de caminos más cortos a encontrar (k):"));
+
+        if (!source || !target || isNaN(k) || !graph.hasNode(source) || !graph.hasNode(target)) {
+            alert("Verifica que los nodos existen y que k es válido.");
+            return;
         }
 
-        // Implementación del algoritmo Yen's K-Shortest Paths
-        function yenKShortestPaths(source, target, k) {
-            // Inicializar los caminos k y los candidatos
-            let kPaths = [];
-            let candidatos = [];
-            
-            // Camino más corto inicial usando Dijkstra
-            let shortestPath = dijkstraPath(source, target);
-            if (!shortestPath) return kPaths; // Si no hay un camino, retorna vacío
-            kPaths.push(shortestPath);
+        function yenAlgorithm(graph, source, target, k) {
+            let paths = []; // Almacenará los k caminos más cortos
+            let potentialPaths = []; // Caminos candidatos
 
+            // Encuentra el camino más corto inicial con Dijkstra
+            let initialPath = dijkstraPath(graph, source, target);
+            if (!initialPath) {
+                alert("No hay camino entre los nodos seleccionados.");
+                return [];
+            }
+            paths.push(initialPath);
+
+            // Generar caminos alternativos
             for (let i = 1; i < k; i++) {
-                for (let j = 0; j < kPaths[i - 1].length - 1; j++) {
-                    let spurNode = kPaths[i - 1][j];
-                    let rootPath = kPaths[i - 1].slice(0, j + 1);
+                let lastPath = paths[paths.length - 1];
+                for (let j = 0; j < lastPath.nodes.length - 1; j++) {
+                    let spurNode = lastPath.nodes[j];
+                    let rootPath = lastPath.nodes.slice(0, j + 1);
 
-                    // Crear una copia temporal del grafo
-                    let tempGraph = new graphlib.Graph({ directed: false });
-                    cy.edges().forEach(edge => {
-                        const sourceId = edge.data('source');
-                        const targetId = edge.data('target');
-                        const weight = edge.data('weight');
-                        if (!rootPath.includes(sourceId) || !rootPath.includes(targetId)) {
-                            tempGraph.setEdge(sourceId, targetId, weight);
+                    let tempGraph = cloneGraph(graph);
+                    // Elimina todas las aristas que intersectan con rootPath excepto la actual
+                    for (let path of paths) {
+                        let sharedRoot = path.nodes.slice(0, rootPath.length);
+                        if (sharedRoot.join() === rootPath.join()) {
+                            tempGraph.removeEdge(path.nodes[j], path.nodes[j + 1]);
                         }
-                    });
+                    }
 
-                    // Remover aristas de caminos ya encontrados
-                    kPaths.forEach(path => {
-                        if (JSON.stringify(path.slice(0, j + 1)) === JSON.stringify(rootPath)) {
-                            tempGraph.removeEdge(path[j], path[j + 1]);
-                        }
-                    });
+                    // Elimina los nodos de rootPath excepto el spurNode
+                    rootPath.slice(0, -1).forEach(node => tempGraph.removeNode(node));
 
-                    // Calcular el camino a partir del spur node hasta el destino
-                    let spurPath = dijkstraPathFromGraph(tempGraph, spurNode, target);
+                    // Encuentra el camino spur desde spurNode a destino
+                    let spurPath = dijkstraPath(tempGraph, spurNode, target);
+
                     if (spurPath) {
-                        let totalPath = rootPath.slice(0, -1).concat(spurPath);
-                        let totalCost = calculatePathCost(totalPath);
+                        // Combina rootPath y spurPath
+                        let totalPath = {
+                            nodes: rootPath.concat(spurPath.nodes.slice(1)),
+                            weight: rootPath.reduce((sum, _, idx) =>
+                                idx < rootPath.length - 1 ? sum + graph.edge(rootPath[idx], rootPath[idx + 1]) : sum, 0) + spurPath.weight
+                        };
 
-                        // Agregar a candidatos
-                        candidatos.push({ cost: totalCost, path: totalPath });
+                        if (!potentialPaths.find(p => p.nodes.join() === totalPath.nodes.join())) {
+                            potentialPaths.push(totalPath);
+                        }
                     }
                 }
 
-                // Ordenar los candidatos por costo y añadir el camino con menor costo a kPaths
-                if (candidatos.length > 0) {
-                    candidatos.sort((a, b) => a.cost - b.cost);
-                    let newPath = candidatos.shift().path;
-                    kPaths.push(newPath);
-                } else {
-                    break;
+                if (potentialPaths.length === 0) {
+                    break; // No hay más caminos posibles
                 }
+
+                // Ordena los caminos candidatos por peso y elige el mejor
+                potentialPaths.sort((a, b) => a.weight - b.weight);
+                paths.push(potentialPaths.shift());
             }
 
-            return kPaths;
+            return paths;
         }
 
-        // Función para encontrar el camino más corto con Dijkstra
-        function dijkstraPath(source, target) {
+        function dijkstraPath(graph, source, target) {
             let path = graphlib.alg.dijkstra(graph, source, e => graph.edge(e));
-            let result = [];
-            let current = target;
+            if (!path[target] || !path[target].distance) {
+                return null;
+            }
 
+            let nodes = [];
+            let current = target;
             while (current !== source) {
-                result.push(current);
+                nodes.push(current);
                 current = path[current].predecessor;
             }
-            result.push(source);
-            return result.reverse();
+            nodes.push(source);
+            nodes.reverse();
+
+            return { nodes, weight: path[target].distance };
         }
 
-        // Función para calcular el costo total de un camino
-        function calculatePathCost(path) {
-            let cost = 0;
-            for (let i = 0; i < path.length - 1; i++) {
-                let weight = graph.edge(path[i], path[i + 1]);
-                if (weight !== undefined) {
-                    cost += weight;
-                } else {
-                    return Infinity; // Si no hay una arista, el costo es infinito
-                }
-            }
-            return cost;
+        function cloneGraph(originalGraph) {
+            let newGraph = new graphlib.Graph({ directed: originalGraph.isDirected() });
+            originalGraph.nodes().forEach(node => newGraph.setNode(node));
+            originalGraph.edges().forEach(edge =>
+                newGraph.setEdge(edge.v, edge.w, originalGraph.edge(edge)));
+            return newGraph;
         }
+
+        // Ejecuta el algoritmo de Yen
+        let kShortestPaths = yenAlgorithm(graph, source, target, k);
+        if (kShortestPaths.length === 0) {
+            alert("No se encontraron caminos.");
+        } else {
+            let result = kShortestPaths.map((p, i) => `Camino ${i + 1}: ${p.nodes.join(' -> ')} (Peso: ${p.weight})`);
+            alert(result.join('\n'));
+        }
+    });
     </script>
 </body>
 </html>
