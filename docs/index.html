@@ -6,7 +6,6 @@
     <title>Grafos y algoritmos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/javascript-astar/0.4.1/astar.min.js"></script>
     <style>
         #cy {
             width: 80%;
@@ -31,7 +30,6 @@
         <button id="run-dijkstra">Dijkstra</button>
         <button id="run-kruskal">Kruskal</button>
         <button id="run-bellman-ford">Bellman-Ford</button>
-        <button id="run-yen">Yen</button>
     </div>
     <div id="cy"></div>
 
@@ -73,6 +71,8 @@
                 position: { x: Math.random() * 600, y: Math.random() * 600 }
             });
             graph.setNode(nodeId);
+            console.log("Nodo agregado:", nodeId);  // Depuración
+            console.log("Estado del grafo:", graph);
         });
 
         document.getElementById('add-edge').addEventListener('click', () => {
@@ -88,71 +88,62 @@
                     style: { 'line-color': color, 'target-arrow-color': color }
                 });
                 graph.setEdge(source, target, weight);
+                console.log("Arista agregada:", source, "->", target, "con peso", weight);  // Depuración
+                console.log("Estado del grafo después de añadir arista:", graph);
             } else {
                 alert("Verifica que los nodos existen y que los datos son válidos.");
             }
         });
 
-        document.getElementById('run-dijkstra').addEventListener('click', () => {
-            let source = prompt("Ingrese el ID del nodo fuente:");
-            let target = prompt("Ingrese el ID del nodo destino:");
-            if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
-                let path = graphlib.alg.dijkstra(graph, source, e => graph.edge(e));
-                let result = [];
-                let current = target;
-                while (current !== source) {
-                    result.push(current);
-                    current = path[current].predecessor;
-                }
-                result.push(source);
-                result.reverse();
-                alert(`Camino más corto: ${result.join(' -> ')}`);
-            } else {
-                alert("Verifica que los nodos existen.");
-            }
-        });
-
         document.getElementById('run-kruskal').addEventListener('click', () => {
-            let mst = graphlib.alg.kruskal(graph);
-            if (mst.length === 0) {
-                alert("No se pudo generar un árbol de expansión mínima. Verifica que el grafo es conexo.");
-            } else {
-                let mstEdges = mst.map(edge => `${edge.v} - ${edge.w} (Peso: ${edge.weight})`);
-                alert(`Árbol de expansión mínima:\n${mstEdges.join('\n')}`);
+            console.log("Ejecutando Kruskal...");  // Depuración
+            try {
+                let mst = graphlib.alg.kruskal(graph);
+                if (mst.length === 0) {
+                    alert("No se pudo generar un árbol de expansión mínima. Verifica que el grafo es conexo.");
+                } else {
+                    let mstEdges = mst.map(edge => `${edge.v} - ${edge.w} (Peso: ${edge.weight})`);
+                    alert(`Árbol de expansión mínima:\n${mstEdges.join('\n')}`);
+                    console.log("Resultado de Kruskal:", mstEdges);  // Depuración
+                }
+            } catch (error) {
+                console.error("Error en Kruskal:", error);
+                alert("Hubo un error al ejecutar el algoritmo de Kruskal. Verifica la consola para más detalles.");
             }
         });
-
 
         document.getElementById('run-bellman-ford').addEventListener('click', () => {
             let source = prompt("Ingrese el ID del nodo fuente:");
             let target = prompt("Ingrese el ID del nodo destino:");
-            if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
-                let path = graphlib.alg.bellmanFord(graph, source, e => graph.edge(e));
-                if (path[target].distance === Infinity) {
-                    alert("No se pudo encontrar un camino desde el nodo fuente al destino.");
-                    return;
-                }
-                let result = [];
-                let current = target;
-                while (current !== source) {
-                    if (!path[current].predecessor) {
-                        alert("No hay camino disponible entre los nodos especificados.");
+            console.log("Ejecutando Bellman-Ford desde", source, "a", target);  // Depuración
+            try {
+                if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
+                    let path = graphlib.alg.bellmanFord(graph, source, e => graph.edge(e));
+                    if (path[target].distance === Infinity) {
+                        alert("No se pudo encontrar un camino desde el nodo fuente al destino.");
                         return;
                     }
-                    result.push(current);
-                    current = path[current].predecessor;
+                    let result = [];
+                    let current = target;
+                    while (current !== source) {
+                        if (!path[current].predecessor) {
+                            alert("No hay camino disponible entre los nodos especificados.");
+                            return;
+                        }
+                        result.push(current);
+                        current = path[current].predecessor;
+                    }
+                    result.push(source);
+                    result.reverse();
+                    alert(`Camino más corto: ${result.join(' -> ')}`);
+                    console.log("Resultado de Bellman-Ford:", result);  // Depuración
+                } else {
+                    alert("Verifica que los nodos existen.");
                 }
-                result.push(source);
-                result.reverse();
-                alert(`Camino más corto: ${result.join(' -> ')}`);
-            } else {
-                alert("Verifica que los nodos existen.");
+            } catch (error) {
+                console.error("Error en Bellman-Ford:", error);
+                alert("Hubo un error al ejecutar el algoritmo de Bellman-Ford. Verifica la consola para más detalles.");
             }
-        });
-
-
-        document.getElementById('run-yen').addEventListener('click', () => {
-            alert('El algoritmo de Yen aún no está implementado.');
         });
     </script>
 </body>
