@@ -3,108 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grafos y algoritmos</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
+    <title>Graph Algorithms</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
-    <style>
-        #cy {
-            width: 80%;
-            height: 600px;
-            display: inline-block;
-        }
-        #controls {
-            width: 18%;
-            display: inline-block;
-            vertical-align: top;
-        }
-        button {
-            display: block;
-            margin: 10px 0;
-        }
-    </style>
 </head>
 <body>
-    <div id="controls">
-        <button id="add-node">Agregar Nodo</button>
-        <button id="add-edge">Agregar Arista</button>
-        <button id="run-dijkstra">Dijkstra</button>
-        <button id="run-kruskal">Kruskal</button>
-        <button id="run-bellman-ford">Bellman-Ford</button>
-        <button id="run-yen">Yen</button>
-    </div>
-    <div id="cy"></div>
+    <button id="run-bellman-ford">Run Bellman-Ford</button>
+    <button id="run-kruskal">Run Kruskal</button>
+    <button id="run-dijkstra">Run Dijkstra</button>
+    <button id="run-yen">Run Yen's K-Shortest Paths</button>
 
     <script>
-        let cy = cytoscape({
-            container: document.getElementById('cy'),
-            style: [
-                {
-                    selector: 'node',
-                    style: {
-                        'background-color': 'lightblue',
-                        'label': 'data(id)'
-                    }
-                },
-                {
-                    selector: 'edge',
-                    style: {
-                        'width': 3,
-                        'line-color': 'gray',
-                        'target-arrow-color': 'gray',
-                        'target-arrow-shape': 'triangle',
-                        'curve-style': 'bezier',
-                        'label': 'data(weight)'
-                    }
-                }
-            ],
-            elements: []
-        });
+        const graph = new graphlib.Graph();
 
-        let graph = new graphlib.Graph({ directed: false });
-        let nodeCount = 0;
-
-        document.getElementById('add-node').addEventListener('click', () => {
-            nodeCount++;
-            let nodeId = `n${nodeCount}`;
-            cy.add({
-                group: 'nodes',
-                data: { id: nodeId },
-                position: { x: Math.random() * 600, y: Math.random() * 600 }
-            });
-            graph.setNode(nodeId);
-            console.log("Nodo agregado:", nodeId);  // Depuración
-            console.log("Estado del grafo:", graph);
-        });
-
-        document.getElementById('add-edge').addEventListener('click', () => {
-            let source = prompt("Ingrese el ID del nodo fuente:");
-            let target = prompt("Ingrese el ID del nodo destino:");
-            let weight = parseFloat(prompt("Ingrese el peso de la arista:"));
-            let color = prompt("Ingrese el color de la arista (por ejemplo, 'red', 'blue'):");
-
-            if (source && target && !isNaN(weight) && color && graph.hasNode(source) && graph.hasNode(target)) {
-                cy.add({
-                    group: 'edges',
-                    data: { id: `e${source}-${target}`, source: source, target: target, weight: weight },
-                    style: { 'line-color': color, 'target-arrow-color': color }
-                });
-                graph.setEdge(source, target, weight);
-                console.log("Arista agregada:", source, "->", target, "con peso", weight);  // Depuración
-                console.log("Estado del grafo después de añadir arista:", graph);
-            } else {
-                alert("Verifica que los nodos existen y que los datos son válidos.");
-            }
-        });
-        
         document.getElementById('run-bellman-ford').addEventListener('click', () => {
             let source = prompt("Ingrese el ID del nodo fuente:");
             let target = prompt("Ingrese el ID del nodo destino:");
             console.log("Ejecutando Bellman-Ford desde", source, "a", target);  // Depuración
 
             if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
-                let result = bellmanFordAlgoritmo(graph, source, target);
+                let result = bellmanFordAlgorithm(graph, source, target);
                 if (result.error) {
-                    alert(result.error); 
+                    alert(result.error);  // Mostrar el mensaje de error si hay un ciclo negativo
                 } else {
                     if (result.path.length === 0) {
                         alert("No hay un camino disponible entre los nodos especificados.");
@@ -151,7 +70,7 @@
             console.log("Ejecutando Yen desde", source, "a", target, "para", k, "caminos");  // Depuración
 
             if (source && target && !isNaN(k) && graph.hasNode(source) && graph.hasNode(target)) {
-                let result = yenKCaminoCorto(source, target, k);
+                let result = yenKShortestPaths(source, target, k);
                 if (result.length === 0) {
                     alert("No hay caminos disponibles entre los nodos especificados.");
                 } else {
@@ -164,108 +83,66 @@
             }
         });
 
-        function bellmanFordAlgoritmo(graph, source, target) {
-            let distance = {};
-            let predecessor = {};
-            let nodes = graph.nodes();
-            let edges = graph.edges();
+        // Implementación del algoritmo Bellman-Ford
+        function bellmanFordAlgorithm(graph, source, target) {
+            const distances = {};
+            const predecessors = {};
 
-            nodes.forEach(node => {
-                distance[node] = node === source ? 0 : Infinity;
-                predecessor[node] = null;
+            // Inicializar las distancias y predecesores
+            graph.nodes().forEach(node => {
+                distances[node] = Infinity;
+                predecessors[node] = null;
             });
+            distances[source] = 0;
 
-            for (let i = 1; i < nodes.length; i++) {
-                edges.forEach(edge => {
-                    let sourceNode = edge.v;
-                    let targetNode = edge.w;
-                    let weight = graph.edge(edge);
-                    if (distance[sourceNode] + weight < distance[targetNode]) {
-                        distance[targetNode] = distance[sourceNode] + weight;
-                        predecessor[targetNode] = sourceNode;
+            // Relajación de todas las aristas |V| - 1 veces
+            for (let i = 0; i < graph.nodeCount() - 1; i++) {
+                graph.edges().forEach(edge => {
+                    const u = edge.v;
+                    const v = edge.w;
+                    const weight = graph.edge(u, v);
+                    if (distances[u] !== Infinity && distances[u] + weight < distances[v]) {
+                        distances[v] = distances[u] + weight;
+                        predecessors[v] = u;
                     }
                 });
             }
 
-            edges.forEach(edge => {
-                let sourceNode = edge.v;
-                let targetNode = edge.w;
-                let weight = graph.edge(edge);
-                if (distance[sourceNode] + weight < distance[targetNode]) {
-                    return { error: "El grafo contiene un ciclo negativo." };
+            // Comprobar ciclos de peso negativo
+            for (const edge of graph.edges()) {
+                const u = edge.v;
+                const v = edge.w;
+                const weight = graph.edge(u, v);
+                if (distances[u] !== Infinity && distances[u] + weight < distances[v]) {
+                    return { error: "El grafo contiene un ciclo de peso negativo." };
                 }
-            });
+            }
 
-            let path = [];
+            // Reconstruir el camino desde el destino al origen
+            const path = [];
             let current = target;
-            while (current) {
-                path.unshift(current);
-                current = predecessor[current];
+            while (current !== null) {
+                path.push(current);
+                current = predecessors[current];
             }
+            path.reverse();
 
-            return { path, distance: distance[target] };
+            // Si no se pudo llegar al destino desde el origen, devolver un camino vacío
+            return {
+                path: distances[target] === Infinity ? [] : path,
+                distance: distances[target]
+            };
         }
 
-        function kruskalAlgoritmo(graph){
-            const parent = {};
-            const rank = {};
-            function findNodo(node){
-                if(parent[node] !== node){
-                    parent[node] = findNodo(parent[node]);
-                }
-                return parent[node];
-            }
-
-            function unionNodos(node1, node2) {
-                let root1 = findNodo(node1);
-                let root2 = findNodo(node2);
-                if (root1 !== root2) {
-                    if (rank[root1] > rank[root2]) {
-                        parent[root2] = root1;
-                    } else if (rank[root1] < rank[root2]) {
-                        parent[root1] = root2;
-                    } else {
-                        parent[root2] = root1;
-                        rank[root1]++;
-                    }
-                }
-            }
-        
-            graph.nodes().forEach(node => {
-                parent[node] = node;
-                rank[node] = 0;
-            });
-
-            let edges = graph.edges().map(edge => ({
-                v: edge.v,
-                w: edge.w,
-                weight: graph.edge(edge.v, edge.w)
-            }));
-            edges.sort((a, b) => a.weight - b.weight);
-
-            const mst = [];
-            for (const edge of edges) {
-                const { v, w, weight } = edge;
-                if (findNodo(v) !== findNodo(w)) {
-                    mst.push(edge);
-                    unionNodos(v, w);
-                }
-            }
-
-            if (mst.length !== graph.nodeCount() - 1) {
-                return { error: "El grafo no es conexo, no se puede construir un árbol de expansión mínima completo." };
-            }
-            return { edges: mst };
-        }
-
-        function yenKCaminoCorto(source, target, k) {
-            
+        // Implementación del algoritmo Yen's K-Shortest Paths
+        function yenKShortestPaths(source, target, k) {
+            // Inicializar los caminos k y los candidatos
             let kPaths = [];
             let candidatos = [];
             
-           
-            let shortestPath = dijkstraCamino(source, target);
-            if (!shortestPath) return kPaths; 
+            // Camino más corto inicial usando Dijkstra
+            let shortestPath = dijkstraPath(source, target);
+            if (!shortestPath) return kPaths; // Si no hay un camino, retorna vacío
             kPaths.push(shortestPath);
 
             for (let i = 1; i < k; i++) {
@@ -273,7 +150,7 @@
                     let spurNode = kPaths[i - 1][j];
                     let rootPath = kPaths[i - 1].slice(0, j + 1);
 
-                    
+                    // Crear una copia temporal del grafo
                     let tempGraph = new graphlib.Graph({ directed: false });
                     cy.edges().forEach(edge => {
                         const sourceId = edge.data('source');
@@ -284,25 +161,25 @@
                         }
                     });
 
-                    
+                    // Remover aristas de caminos ya encontrados
                     kPaths.forEach(path => {
                         if (JSON.stringify(path.slice(0, j + 1)) === JSON.stringify(rootPath)) {
                             tempGraph.removeEdge(path[j], path[j + 1]);
                         }
                     });
 
-                    
-                    let spurPath = dijkstraCamino(spurNode, target);
+                    // Calcular el camino a partir del spur node hasta el destino
+                    let spurPath = dijkstraPathFromGraph(tempGraph, spurNode, target);
                     if (spurPath) {
                         let totalPath = rootPath.slice(0, -1).concat(spurPath);
-                        let totalCost = calcularCostoCamino(totalPath);
+                        let totalCost = calculatePathCost(totalPath);
 
-                        
+                        // Agregar a candidatos
                         candidatos.push({ cost: totalCost, path: totalPath });
                     }
                 }
 
-                
+                // Ordenar los candidatos por costo y añadir el camino con menor costo a kPaths
                 if (candidatos.length > 0) {
                     candidatos.sort((a, b) => a.cost - b.cost);
                     let newPath = candidatos.shift().path;
@@ -315,8 +192,8 @@
             return kPaths;
         }
 
-        
-        function dijkstraCamino(source, target) {
+        // Función para encontrar el camino más corto con Dijkstra
+        function dijkstraPath(source, target) {
             let path = graphlib.alg.dijkstra(graph, source, e => graph.edge(e));
             let result = [];
             let current = target;
@@ -329,20 +206,19 @@
             return result.reverse();
         }
 
-        
-        function calcularCostoCamino(path) {
+        // Función para calcular el costo total de un camino
+        function calculatePathCost(path) {
             let cost = 0;
             for (let i = 0; i < path.length - 1; i++) {
                 let weight = graph.edge(path[i], path[i + 1]);
                 if (weight !== undefined) {
                     cost += weight;
                 } else {
-                    return Infinity; 
+                    return Infinity; // Si no hay una arista, el costo es infinito
                 }
             }
             return cost;
         }
-
     </script>
 </body>
 </html>
