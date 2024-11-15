@@ -114,18 +114,31 @@
 
         document.getElementById('run-kruskal').addEventListener('click', () => {
             let mst = graphlib.alg.kruskal(graph);
-            let mstEdges = mst.map(edge => `${edge.v} - ${edge.w} (Peso: ${edge.weight})`);
-            alert(`Árbol de expansión mínima:\n${mstEdges.join('\n')}`);
+            if (mst.length === 0) {
+                alert("No se pudo generar un árbol de expansión mínima. Verifica que el grafo es conexo.");
+            } else {
+                let mstEdges = mst.map(edge => `${edge.v} - ${edge.w} (Peso: ${edge.weight})`);
+                alert(`Árbol de expansión mínima:\n${mstEdges.join('\n')}`);
+            }
         });
+
 
         document.getElementById('run-bellman-ford').addEventListener('click', () => {
             let source = prompt("Ingrese el ID del nodo fuente:");
             let target = prompt("Ingrese el ID del nodo destino:");
             if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
                 let path = graphlib.alg.bellmanFord(graph, source, e => graph.edge(e));
+                if (path[target].distance === Infinity) {
+                    alert("No se pudo encontrar un camino desde el nodo fuente al destino.");
+                    return;
+                }
                 let result = [];
                 let current = target;
                 while (current !== source) {
+                    if (!path[current].predecessor) {
+                        alert("No hay camino disponible entre los nodos especificados.");
+                        return;
+                    }
                     result.push(current);
                     current = path[current].predecessor;
                 }
@@ -136,6 +149,7 @@
                 alert("Verifica que los nodos existen.");
             }
         });
+
 
         document.getElementById('run-yen').addEventListener('click', () => {
             alert('El algoritmo de Yen aún no está implementado.');
