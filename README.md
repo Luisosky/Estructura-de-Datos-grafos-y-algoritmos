@@ -6,11 +6,11 @@ Si se desea usar el archivo python se debe de tener python instalado en el equip
 
 ```bash
 # Comando de pip
-echo pip --version
+pip --version
 ```
 ```bash
 # Comando para instalar networkx matplotlib
-echo pip install networkx matplotlib
+pip install networkx matplotlib
 ```
 
 O tambien puede usar la pagina web:
