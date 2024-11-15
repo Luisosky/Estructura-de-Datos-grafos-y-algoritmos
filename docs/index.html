@@ -62,7 +62,7 @@
         let graph = new graphlib.Graph({ directed: false });
         let nodeCount = 0;
 
-        document.getElementById('add-node').addEventListener('click', () => {
+        document.getElementById('añadir-nodo').addEventListener('click', () => {
             nodeCount++;
             let nodeId = `n${nodeCount}`;
             cy.add({
@@ -75,7 +75,7 @@
             console.log("Estado del grafo:", graph);
         });
 
-        document.getElementById('add-edge').addEventListener('click', () => {
+        document.getElementById('añadir-arista').addEventListener('click', () => {
             let source = prompt("Ingrese el ID del nodo fuente:");
             let target = prompt("Ingrese el ID del nodo destino:");
             let weight = parseFloat(prompt("Ingrese el peso de la arista:"));
@@ -116,35 +116,64 @@
             let source = prompt("Ingrese el ID del nodo fuente:");
             let target = prompt("Ingrese el ID del nodo destino:");
             console.log("Ejecutando Bellman-Ford desde", source, "a", target);  // Depuración
-            try {
-                if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
-                    let path = graphlib.alg.bellmanFord(graph, source, e => graph.edge(e));
-                    if (path[target].distance === Infinity) {
-                        alert("No se pudo encontrar un camino desde el nodo fuente al destino.");
-                        return;
-                    }
-                    let result = [];
-                    let current = target;
-                    while (current !== source) {
-                        if (!path[current].predecessor) {
-                            alert("No hay camino disponible entre los nodos especificados.");
-                            return;
-                        }
-                        result.push(current);
-                        current = path[current].predecessor;
-                    }
-                    result.push(source);
-                    result.reverse();
-                    alert(`Camino más corto: ${result.join(' -> ')}`);
-                    console.log("Resultado de Bellman-Ford:", result);  // Depuración
+
+            if (source && target && graph.hasNode(source) && graph.hasNode(target)) {
+                let result = bellmanFordAlgoritmo(graph, source, target);
+                if (result.error) {
+                    alert(result.error); 
                 } else {
-                    alert("Verifica que los nodos existen.");
+                    if (result.path.length === 0) {
+                        alert("No hay un camino disponible entre los nodos especificados.");
+                    } else {
+                        alert(`Camino más corto: ${result.path.join(' -> ')} con distancia total: ${result.distance}`);
+                    }
                 }
-            } catch (error) {
-                console.error("Error en Bellman-Ford:", error);
-                alert("Hubo un error al ejecutar el algoritmo de Bellman-Ford. Verifica la consola para más detalles.");
+            } else {
+                alert("Verifica que los nodos existen.");
             }
         });
+
+        function bellmanFordAlgoritmo(graph, source, target) {
+            let distance = {};
+            let predecessor = {};
+            let nodes = graph.nodes();
+            let edges = graph.edges();
+
+            nodes.forEach(node => {
+                distance[node] = node === source ? 0 : Infinity;
+                predecessor[node] = null;
+            });
+
+            for (let i = 1; i < nodes.length; i++) {
+                edges.forEach(edge => {
+                    let sourceNode = edge.v;
+                    let targetNode = edge.w;
+                    let weight = graph.edge(edge);
+                    if (distance[sourceNode] + weight < distance[targetNode]) {
+                        distance[targetNode] = distance[sourceNode] + weight;
+                        predecessor[targetNode] = sourceNode;
+                    }
+                });
+            }
+
+            edges.forEach(edge => {
+                let sourceNode = edge.v;
+                let targetNode = edge.w;
+                let weight = graph.edge(edge);
+                if (distance[sourceNode] + weight < distance[targetNode]) {
+                    return { error: "El grafo contiene un ciclo negativo." };
+                }
+            });
+
+            let path = [];
+            let current = target;
+            while (current) {
+                path.unshift(current);
+                current = predecessor[current];
+            }
+
+            return { path, distance: distance[target] };
+        }
     </script>
 </body>
 </html>
