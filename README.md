@@ -5,7 +5,7 @@ P3 de estructura de datos
 Si se desea usar el archivo python se debe de tener python instalado en el equipo y usar este comando en el cmd.
 
 ```bash
-# verificar tener pip instalado
+# verificar tener python instalado
 pip --version
 ```
 ```bash
